@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>getUserMedia</title>
+</head>
+
+<body>
+    <div class="parent">
+        <button id="rec_button">録画開始</button>
+        <button id="stop_button">録画終了</button>
+        <video id="video" width="640" height="320" muted autoplay />
+    </div>
+</body>
+
+<style>
+    .parent {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+    }
+</style>
+
+<script>
+
+    // @ts-check
+
+    // 今回利用するコンテナフォーマット、コーデック
+    const MIME_TYPE = `video/webm; codecs="vp9,opus"`
+    // 録画するやつ
+    let mediaRecorder
+    // WebMデータが細切れになって来るので一時的に保存する
+    let chunks = []
+
+    const recordButton = document.getElementById('rec_button')
+    const stopButton = document.getElementById('stop_button')
+    const videoElement = document.getElementById('video')
+
+    // 録画を開始して、canvasに描画する
+    const startRec = async () => {
+        // 画面をキャプチャーしてくれるやつ
+        const displayMedia = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true })
+        // パソコンの画面を流す
+        mediaRecorder = new MediaRecorder(displayMedia, { mimeType: MIME_TYPE })
+        // 録画データが着たら呼ばれる
+        mediaRecorder.ondataavailable = (ev) => {
+            chunks.push(ev.data)
+        }
+        // 録画開始
+        mediaRecorder.start(100)
+        // とりあえず video要素 で再生
+        videoElement.srcObject = displayMedia
+    }
+
+    // 録画ボタン投下時
+    recordButton.onclick = () => {
+        startRec()
+    }
+
+    // 終了ボタン投下時
+    stopButton.onclick = () => {
+        // 録画を止める
+        mediaRecorder.stop()
+        // BlobUrlを作成し、a要素でリンクを作りJSで押すことでダウンロードさせる（DL出来るんだ！
+        const blob = new Blob(chunks, { type: MIME_TYPE })
+        const blobUrl = URL.createObjectURL(blob)
+        const aElement = document.createElement('a')
+        aElement.style.display = 'none'
+        aElement.href = blobUrl
+        aElement.download = `record-${Date.now()}.webm`
+        document.body.appendChild(aElement)
+        aElement.click()
+        // TODO BlobUrlのリソース開放
+    }
+
+</script>
+
+</html>
